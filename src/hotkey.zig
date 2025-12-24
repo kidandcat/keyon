@@ -123,8 +123,8 @@ fn eventCallback(
                     return null;
                 }
 
-                // Enter - single click
-                if (keycode == KEY_RETURN) {
+                // Space - left click
+                if (keycode == KEY_SPACE_TRIGGER) {
                     if (typed_len > 0) {
                         should_click = true;
                     } else {
@@ -133,8 +133,8 @@ fn eventCallback(
                     return null;
                 }
 
-                // Space - right click
-                if (keycode == KEY_SPACE_TRIGGER) {
+                // Enter - right click
+                if (keycode == KEY_RETURN) {
                     if (typed_len > 0) {
                         should_right_click = true;
                     } else {
