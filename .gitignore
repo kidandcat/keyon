@@ -1,0 +1,19 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+*.o
+*.a
+*.dylib
