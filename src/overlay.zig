@@ -170,14 +170,14 @@ fn handleInput(app: *main.App) void {
         click.performClick(pos.x, pos.y);
     }
 
-    // Handle double click at current mouse position
-    if (hotkey.double_click_at_mouse) {
-        hotkey.double_click_at_mouse = false;
+    // Handle right click at current mouse position
+    if (hotkey.right_click_at_mouse) {
+        hotkey.right_click_at_mouse = false;
         const pos = getMousePosition();
-        std.debug.print("Double clicking at mouse position: ({d}, {d})\n", .{ @as(i32, @intFromFloat(pos.x)), @as(i32, @intFromFloat(pos.y)) });
+        std.debug.print("Right clicking at mouse position: ({d}, {d})\n", .{ @as(i32, @intFromFloat(pos.x)), @as(i32, @intFromFloat(pos.y)) });
         app.hideOverlay();
         std.Thread.sleep(30 * std.time.ns_per_ms);
-        click.performDoubleClick(pos.x, pos.y);
+        click.performRightClick(pos.x, pos.y);
     }
 
     // Check if we should click a label
@@ -188,9 +188,9 @@ fn handleInput(app: *main.App) void {
         }
     }
 
-    // Check if we should double click a label
-    if (hotkey.should_double_click) {
-        hotkey.should_double_click = false;
+    // Check if we should right click a label
+    if (hotkey.should_right_click) {
+        hotkey.should_right_click = false;
         if (hotkey.typed_len > 0) {
             _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], true);
         }
@@ -214,7 +214,7 @@ fn getMousePosition() rl.Vector2 {
     return rl.Vector2{ .x = 0, .y = 0 };
 }
 
-fn tryClickLabel(app: *main.App, label: []const u8, double_click: bool) bool {
+fn tryClickLabel(app: *main.App, label: []const u8, right_click: bool) bool {
     const elements = app.elements.items;
 
     var i: usize = 0;
@@ -224,16 +224,16 @@ fn tryClickLabel(app: *main.App, label: []const u8, double_click: bool) bool {
 
         if (std.mem.eql(u8, label, elem_label[0..label_len])) {
             // Found a match - hide overlay FIRST, then click
-            if (double_click) {
-                std.debug.print("Double clicking element: {s}\n", .{elem.getDisplayName()});
+            if (right_click) {
+                std.debug.print("Right clicking element: {s}\n", .{elem.getDisplayName()});
             } else {
                 std.debug.print("Clicking element: {s}\n", .{elem.getDisplayName()});
             }
             app.hideOverlay();
             // Give time for overlay to hide
             std.Thread.sleep(30 * std.time.ns_per_ms);
-            if (double_click) {
-                app.doubleClickElement(elem);
+            if (right_click) {
+                app.rightClickElement(elem);
             } else {
                 app.clickElement(elem);
             }

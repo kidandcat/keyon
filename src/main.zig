@@ -172,7 +172,7 @@ pub const App = struct {
         click.performClick(center_x, center_y);
     }
 
-    pub fn doubleClickElement(self: *App, element: UIElement) void {
+    pub fn rightClickElement(self: *App, element: UIElement) void {
         // Set target PID for app activation
         if (self.target_pid) |pid| {
             click.setTargetPid(@intCast(pid));
@@ -180,7 +180,7 @@ pub const App = struct {
 
         const center_x = element.x + element.width / 2.0;
         const center_y = element.y + element.height / 2.0;
-        click.performDoubleClick(center_x, center_y);
+        click.performRightClick(center_x, center_y);
     }
 
     pub fn getFilteredElements(self: *App) []const UIElement {

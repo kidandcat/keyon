@@ -11,7 +11,7 @@ A keyboard-driven UI navigation tool for macOS, similar to [Shortcat](https://sh
 - **Smart labels** - Left-hand keyboard priority for faster typing (A, S, D, F, etc.)
 - **Scroll support** - Use `Shift+Arrow` keys to scroll while overlay is active
 - **Mouse movement** - Arrow keys move the mouse cursor
-- **Single & double click** - `Enter` for single click, `Space` for double click
+- **Left & right click** - `Enter` for left click, `Space` for right click
 - **Auto-refresh** - Labels recalculate after scrolling to catch new elements
 - **Lightweight** - Built with Zig and raylib for minimal resource usage
 - **Menu bar icon** - Easy access to quit the app
@@ -66,8 +66,8 @@ codesign --force --sign - /Applications/KeyOn.app
 |----------|--------|
 | `Cmd+<` | Toggle overlay (show/hide labels) |
 | `A-Z` | Type label characters to filter |
-| `Enter` | Single click on element (or at cursor if no label typed) |
-| `Space` | Double click on element (or at cursor if no label typed) |
+| `Enter` | Left click on element (or at cursor if no label typed) |
+| `Space` | Right click on element (or at cursor if no label typed) |
 | `Arrow keys` | Move mouse cursor |
 | `Shift+Arrow` | Scroll in that direction |
 | `Backspace` | Delete last typed character |

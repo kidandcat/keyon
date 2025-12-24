@@ -82,9 +82,9 @@ const KEY_RIGHT: u16 = 124;
 pub var typed_chars: [8]u8 = undefined;
 pub var typed_len: usize = 0;
 pub var should_click: bool = false;
-pub var should_double_click: bool = false;
+pub var should_right_click: bool = false;
 pub var click_at_mouse: bool = false;
-pub var double_click_at_mouse: bool = false;
+pub var right_click_at_mouse: bool = false;
 pub var move_mouse_x: i32 = 0;
 pub var move_mouse_y: i32 = 0;
 pub var scroll_x: i32 = 0;
@@ -133,12 +133,12 @@ fn eventCallback(
                     return null;
                 }
 
-                // Space - double click
+                // Space - right click
                 if (keycode == KEY_SPACE_TRIGGER) {
                     if (typed_len > 0) {
-                        should_double_click = true;
+                        should_right_click = true;
                     } else {
-                        double_click_at_mouse = true;
+                        right_click_at_mouse = true;
                     }
                     return null;
                 }
