@@ -75,6 +75,10 @@ void removeStatusBar(void) {
     }
 }
 
+void hideFromDock(void) {
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+}
+
 void processCocoaEvents(void) {
     @autoreleasepool {
         NSEvent *event;

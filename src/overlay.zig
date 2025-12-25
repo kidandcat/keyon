@@ -8,6 +8,10 @@ const rl = @cImport({
     @cInclude("raylib.h");
 });
 
+const statusbar = @cImport({
+    @cInclude("statusbar.h");
+});
+
 
 // Label generation: A-Z, then AA-AZ, BA-BZ, etc.
 const LABEL_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -41,6 +45,9 @@ pub fn show(app: *main.App) void {
         // First time - initialize window
         rl.SetConfigFlags(rl.FLAG_WINDOW_UNDECORATED | rl.FLAG_WINDOW_TRANSPARENT | rl.FLAG_WINDOW_TOPMOST | rl.FLAG_WINDOW_HIGHDPI | rl.FLAG_WINDOW_MOUSE_PASSTHROUGH);
         rl.InitWindow(100, 100, "KeyOn Overlay");
+
+        // Hide from Dock and CMD+Tab after raylib creates its window
+        statusbar.hideFromDock();
 
         if (rl.IsWindowReady() == false) {
             std.debug.print("Failed to create window\n", .{});
