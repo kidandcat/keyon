@@ -21,8 +21,8 @@ const kCGEventFlagMaskShift: u64 = 0x20000;
 pub fn register(app: *main.App) !void {
     global_app = app;
 
-    // Create event tap to monitor key events
-    const event_mask: c.CGEventMask = (1 << c.kCGEventKeyDown);
+    // Create event tap to monitor key events (both down and up for smooth movement)
+    const event_mask: c.CGEventMask = (1 << c.kCGEventKeyDown) | (1 << c.kCGEventKeyUp);
 
     event_tap = c.CGEventTapCreate(
         c.kCGSessionEventTap,
@@ -85,10 +85,52 @@ pub var should_click: bool = false;
 pub var should_right_click: bool = false;
 pub var click_at_mouse: bool = false;
 pub var right_click_at_mouse: bool = false;
-pub var move_mouse_x: i32 = 0;
-pub var move_mouse_y: i32 = 0;
 pub var scroll_x: i32 = 0;
 pub var scroll_y: i32 = 0;
+
+// Continuous mouse movement state
+pub var arrow_up_held: bool = false;
+pub var arrow_down_held: bool = false;
+pub var arrow_left_held: bool = false;
+pub var arrow_right_held: bool = false;
+var movement_start_time: i64 = 0;
+
+const BASE_SPEED: f32 = 150.0; // pixels per second
+const MAX_SPEED: f32 = 2000.0; // pixels per second
+const ACCEL_TIME: f32 = 1.0; // seconds to reach max speed
+
+// Called from overlay loop to get current movement delta
+pub fn getMouseMovement(delta_time: f32) struct { x: f32, y: f32 } {
+    var dx: f32 = 0;
+    var dy: f32 = 0;
+
+    const any_held = arrow_up_held or arrow_down_held or arrow_left_held or arrow_right_held;
+
+    if (!any_held) {
+        movement_start_time = 0;
+        return .{ .x = 0, .y = 0 };
+    }
+
+    const now = std.time.milliTimestamp();
+    if (movement_start_time == 0) {
+        movement_start_time = now;
+    }
+
+    // Calculate current speed based on how long keys have been held
+    const elapsed_ms = now - movement_start_time;
+    const elapsed_sec: f32 = @as(f32, @floatFromInt(elapsed_ms)) / 1000.0;
+    const accel_progress = @min(elapsed_sec / ACCEL_TIME, 1.0);
+    const current_speed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * accel_progress;
+
+    const movement = current_speed * delta_time;
+
+    if (arrow_up_held) dy -= movement;
+    if (arrow_down_held) dy += movement;
+    if (arrow_left_held) dx -= movement;
+    if (arrow_right_held) dx += movement;
+
+    return .{ .x = dx, .y = dy };
+}
 
 fn eventCallback(
     proxy: c.CGEventTapProxy,
@@ -99,10 +141,24 @@ fn eventCallback(
     _ = proxy;
     _ = user_info;
 
-    if (event_type == c.kCGEventKeyDown) {
-        const keycode = c.CGEventGetIntegerValueField(event, c.kCGKeyboardEventKeycode);
-        const flags = c.CGEventGetFlags(event);
+    const keycode = c.CGEventGetIntegerValueField(event, c.kCGKeyboardEventKeycode);
+    const flags = c.CGEventGetFlags(event);
 
+    // Handle key up events for arrow keys (release held state)
+    if (event_type == c.kCGEventKeyUp) {
+        if (global_app) |app| {
+            if (app.overlay_visible) {
+                if (keycode == KEY_UP) arrow_up_held = false;
+                if (keycode == KEY_DOWN) arrow_down_held = false;
+                if (keycode == KEY_LEFT) arrow_left_held = false;
+                if (keycode == KEY_RIGHT) arrow_right_held = false;
+                return null;
+            }
+        }
+        return event;
+    }
+
+    if (event_type == c.kCGEventKeyDown) {
         const has_cmd = (flags & kCGEventFlagMaskCommand) != 0;
 
         // Check for Cmd+< toggle overlay
@@ -119,6 +175,11 @@ fn eventCallback(
             if (app.overlay_visible) {
                 // Escape - close overlay
                 if (keycode == KEY_ESCAPE) {
+                    // Reset arrow states
+                    arrow_up_held = false;
+                    arrow_down_held = false;
+                    arrow_left_held = false;
+                    arrow_right_held = false;
                     app.hideOverlay();
                     return null;
                 }
@@ -148,33 +209,33 @@ fn eventCallback(
 
                 if (keycode == KEY_UP) {
                     if (has_shift) {
-                        scroll_y = 3; // Scroll up (positive = up)
+                        scroll_y = 3; // Scroll up
                     } else {
-                        move_mouse_y = -10;
+                        arrow_up_held = true;
                     }
                     return null;
                 }
                 if (keycode == KEY_DOWN) {
                     if (has_shift) {
-                        scroll_y = -3; // Scroll down (negative = down)
+                        scroll_y = -3; // Scroll down
                     } else {
-                        move_mouse_y = 10;
+                        arrow_down_held = true;
                     }
                     return null;
                 }
                 if (keycode == KEY_LEFT) {
                     if (has_shift) {
-                        scroll_x = 3; // Scroll left (positive = left)
+                        scroll_x = 3; // Scroll left
                     } else {
-                        move_mouse_x = -10;
+                        arrow_left_held = true;
                     }
                     return null;
                 }
                 if (keycode == KEY_RIGHT) {
                     if (has_shift) {
-                        scroll_x = -3; // Scroll right (negative = right)
+                        scroll_x = -3; // Scroll right
                     } else {
-                        move_mouse_x = 10;
+                        arrow_right_held = true;
                     }
                     return null;
                 }

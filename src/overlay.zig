@@ -49,6 +49,9 @@ pub fn show(app: *main.App) void {
         // Hide from Dock and CMD+Tab after raylib creates its window
         statusbar.hideFromDock();
 
+        // Set window above all other windows
+        statusbar.setWindowAboveAll();
+
         if (rl.IsWindowReady() == false) {
             std.debug.print("Failed to create window\n", .{});
             return;
@@ -139,12 +142,12 @@ fn rescanElements(app: *main.App) void {
 fn handleInput(app: *main.App) void {
     // Input is handled globally via hotkey.zig event tap
 
-    // Handle mouse movement via arrow keys
-    if (hotkey.move_mouse_x != 0 or hotkey.move_mouse_y != 0) {
+    // Handle continuous mouse movement via arrow keys
+    const delta_time = rl.GetFrameTime();
+    const movement = hotkey.getMouseMovement(delta_time);
+    if (movement.x != 0 or movement.y != 0) {
         const current = getMousePosition();
-        click.moveMouse(current.x + @as(f32, @floatFromInt(hotkey.move_mouse_x)), current.y + @as(f32, @floatFromInt(hotkey.move_mouse_y)));
-        hotkey.move_mouse_x = 0;
-        hotkey.move_mouse_y = 0;
+        click.moveMouse(current.x + movement.x, current.y + movement.y);
     }
 
     // Handle scrolling via Shift+Arrow keys
@@ -263,8 +266,7 @@ fn tryClickLabel(app: *main.App, label: []const u8, right_click: bool) bool {
 
 fn drawElementLabels(app: *main.App) void {
     const elements = app.elements.items;
-    const label_radius: i32 = 12;
-    const margin: i32 = 2;
+    const label_offset: i32 = 10; // Distance from element edge to label center
 
     var i: usize = 0;
     for (elements) |elem| {
@@ -292,11 +294,11 @@ fn drawElementLabels(app: *main.App) void {
             const x: i32 = elem_x + @divTrunc(elem_w, 2);
 
             // Put above by default, below if too close to top
-            const above = elem_y > label_radius * 2 + margin;
+            const above = elem_y > label_offset + 15;
             const y: i32 = if (above)
-                elem_y - label_radius - margin  // Above
+                elem_y - label_offset  // Above
             else
-                elem_y + elem_h + label_radius + margin;  // Below
+                elem_y + elem_h + label_offset;  // Below
 
             drawLabel(x, y, label[0..label_len], hotkey.typed_len, above);
         }
@@ -346,10 +348,9 @@ fn drawTextOutlined(text: [*:0]const u8, pos: rl.Vector2, font_size: f32, fill_c
 }
 
 fn drawLabel(x: i32, y: i32, label: []const u8, highlight_len: usize, points_down: bool) void {
-    _ = points_down; // No longer using arrows
-
-    const font_size: f32 = 21; // 1.5x bigger
+    const font_size: f32 = 21;
     const outline_color = rl.Color{ .r = 0, .g = 0, .b = 0, .a = 255 }; // Black outline
+    const bg_color = rl.Color{ .r = 30, .g = 30, .b = 35, .a = 200 }; // Translucent dark background
 
     // Prepare null-terminated string
     var label_z: [16]u8 = undefined;
@@ -364,6 +365,37 @@ fn drawLabel(x: i32, y: i32, label: []const u8, highlight_len: usize, points_dow
 
     const cx: f32 = @floatFromInt(x);
     const cy: f32 = @floatFromInt(y);
+
+    // Calculate circle radius based on text size
+    const padding: f32 = 4;
+    const radius: f32 = (@max(text_size.x, text_size.y) / 2 + padding) * 0.75;
+
+    // Draw translucent circular background with green border
+    rl.DrawCircle(x, y, radius, bg_color);
+    rl.DrawCircleLines(x, y, radius, LABEL_BG);
+
+    // Draw arrow pointing to target
+    const arrow_size: f32 = 6;
+    const arrow_offset: f32 = radius + 2;
+    if (points_down) {
+        // Arrow pointing down (label is above target)
+        const arrow_y = cy + arrow_offset;
+        rl.DrawTriangle(
+            rl.Vector2{ .x = cx, .y = arrow_y + arrow_size },           // Bottom point
+            rl.Vector2{ .x = cx + arrow_size, .y = arrow_y },           // Top right
+            rl.Vector2{ .x = cx - arrow_size, .y = arrow_y },           // Top left
+            LABEL_BG
+        );
+    } else {
+        // Arrow pointing up (label is below target)
+        const arrow_y = cy - arrow_offset;
+        rl.DrawTriangle(
+            rl.Vector2{ .x = cx, .y = arrow_y - arrow_size },           // Top point
+            rl.Vector2{ .x = cx - arrow_size, .y = arrow_y },           // Bottom left
+            rl.Vector2{ .x = cx + arrow_size, .y = arrow_y },           // Bottom right
+            LABEL_BG
+        );
+    }
 
     // Center text at position
     const text_x = cx - text_size.x / 2;
@@ -381,7 +413,7 @@ fn drawLabel(x: i32, y: i32, label: []const u8, highlight_len: usize, points_dow
 
         drawTextOutlined(@ptrCast(&typed_z), pos, font_size, highlight_color, outline_color);
 
-        // Draw remaining portion in orange
+        // Draw remaining portion in green
         if (highlight_len < label.len) {
             const typed_size = if (font_loaded)
                 rl.MeasureTextEx(custom_font, &typed_z, font_size, 1)
@@ -397,7 +429,7 @@ fn drawLabel(x: i32, y: i32, label: []const u8, highlight_len: usize, points_dow
             drawTextOutlined(@ptrCast(&rest_z), rest_pos, font_size, LABEL_BG, outline_color);
         }
     } else {
-        // Draw full label in orange with white outline
+        // Draw full label in green with black outline
         drawTextOutlined(@ptrCast(&label_z), pos, font_size, LABEL_BG, outline_color);
     }
 }

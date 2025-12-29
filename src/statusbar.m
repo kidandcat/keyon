@@ -79,6 +79,14 @@ void hideFromDock(void) {
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
 }
 
+void setWindowAboveAll(void) {
+    // Set all app windows to be above everything (including other topmost windows)
+    for (NSWindow *window in [NSApp windows]) {
+        [window setLevel:CGShieldingWindowLevel()];
+        [window setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary];
+    }
+}
+
 void processCocoaEvents(void) {
     @autoreleasepool {
         NSEvent *event;
