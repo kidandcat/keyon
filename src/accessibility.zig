@@ -50,11 +50,17 @@ pub fn scanFrontmostApp(allocator: std.mem.Allocator) ![]UIElement {
     return scanApp(pid, allocator);
 }
 
-pub fn scanApp(pid: c.pid_t, allocator: std.mem.Allocator) ![]UIElement {
-    // Reset string buffer
-    string_offset = 0;
+// Scan timeout in milliseconds
+const SCAN_TIMEOUT_MS: i64 = 500;
+var scan_start_time: i64 = 0;
+var scan_timed_out: bool = false;
 
-    std.debug.print("Scanning app with PID: {d}\n", .{pid});
+pub fn scanApp(pid: c.pid_t, allocator: std.mem.Allocator) ![]UIElement {
+    // Reset string buffer and timeout state
+    string_offset = 0;
+    scan_start_time = std.time.milliTimestamp();
+    scan_timed_out = false;
+
 
     // Create AXUIElement for the application
     const app_element = c.AXUIElementCreateApplication(pid);
@@ -64,9 +70,11 @@ pub fn scanApp(pid: c.pid_t, allocator: std.mem.Allocator) ![]UIElement {
     var elements = std.ArrayListUnmanaged(UIElement){};
     errdefer elements.deinit(allocator);
 
-    try scanElement(app_element, &elements, allocator, 0, 20);
-
-    std.debug.print("Found {d} clickable elements\n", .{elements.items.len});
+    scanElement(app_element, &elements, allocator, 0, 10) catch |err| {
+        if (err != error.ScanTimeout) {
+            return err;
+        }
+    };
 
     return elements.toOwnedSlice(allocator);
 }
@@ -78,17 +86,11 @@ fn getFrontmostAppPid() ?c.pid_t {
         c.kCGNullWindowID,
     );
 
-    if (window_list == null) {
-        std.debug.print("CGWindowListCopyWindowInfo returned null\n", .{});
-        return null;
-    }
+    if (window_list == null) return null;
     defer c.CFRelease(window_list);
 
     const count = c.CFArrayGetCount(window_list);
-    if (count == 0) {
-        std.debug.print("No windows found\n", .{});
-        return null;
-    }
+    if (count == 0) return null;
 
     // The first window in the list is typically the frontmost
     // Skip our own windows and system UI windows
@@ -146,7 +148,6 @@ fn getFrontmostAppPid() ?c.pid_t {
                 }
                 if (is_system) continue;
 
-                std.debug.print("Checking window: {s}\n", .{app_name});
             }
         }
 
@@ -157,7 +158,6 @@ fn getFrontmostAppPid() ?c.pid_t {
                 if (c.CFNumberGetValue(@ptrCast(p), c.kCFNumberIntType, &pid) != 0) {
                     // Skip our own process
                     if (pid != our_pid) {
-                        std.debug.print("Found frontmost app PID: {d}\n", .{pid});
                         return @intCast(pid);
                     }
                 }
@@ -165,11 +165,17 @@ fn getFrontmostAppPid() ?c.pid_t {
         }
     }
 
-    std.debug.print("Could not find frontmost app (only our windows visible?)\n", .{});
     return null;
 }
 
 fn scanElement(element: c.AXUIElementRef, elements: *std.ArrayListUnmanaged(UIElement), allocator: std.mem.Allocator, depth: usize, max_depth: usize) !void {
+    // Check timeout
+    const elapsed = std.time.milliTimestamp() - scan_start_time;
+    if (elapsed > SCAN_TIMEOUT_MS) {
+        scan_timed_out = true;
+        return error.ScanTimeout;
+    }
+
     if (depth > max_depth) return;
 
     // Attribute strings
@@ -225,10 +231,6 @@ fn scanElement(element: c.AXUIElementRef, elements: *std.ArrayListUnmanaged(UIEl
         const role_str = cfStringToSlice(@ptrCast(role_ref));
         const title_str = if (title_ref) |t| cfStringToSlice(@ptrCast(t)) else if (desc_ref) |d| cfStringToSlice(@ptrCast(d)) else "";
 
-        // Debug: print first few roles found
-        if (depth <= 2) {
-            std.debug.print("  [{d}] Role: {s}, Title: {s}\n", .{ depth, role_str, title_str });
-        }
 
         var position = c.CGPoint{ .x = 0, .y = 0 };
         if (pos_ref) |p| {
@@ -260,7 +262,6 @@ fn scanElement(element: c.AXUIElementRef, elements: *std.ArrayListUnmanaged(UIEl
         if (is_enabled and ui_elem.isClickable() and elements.items.len < 500) {
             // Skip elements that are off-screen or too small
             if (position.x >= 0 and position.y >= 0 and size.width > 5 and size.height > 5) {
-                std.debug.print("  -> Adding: {s}\n", .{role_str});
                 // Store AXUIElementRef for direct action clicking
                 ui_elem.setAXElement(@ptrCast(@constCast(element)));
                 try elements.append(allocator, ui_elem);
@@ -280,9 +281,18 @@ fn scanElement(element: c.AXUIElementRef, elements: *std.ArrayListUnmanaged(UIEl
 
         var i: c.CFIndex = 0;
         while (i < count) : (i += 1) {
+            // Check timeout before each child
+            if (std.time.milliTimestamp() - scan_start_time > SCAN_TIMEOUT_MS) {
+                scan_timed_out = true;
+                return error.ScanTimeout;
+            }
+
             const child = c.CFArrayGetValueAtIndex(children, i);
             if (child) |ch| {
-                try scanElement(@ptrCast(ch), elements, allocator, depth + 1, max_depth);
+                scanElement(@ptrCast(ch), elements, allocator, depth + 1, max_depth) catch |err| {
+                    if (err == error.ScanTimeout) return err;
+                    // Ignore other errors and continue
+                };
             }
         }
     }

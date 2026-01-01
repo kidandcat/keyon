@@ -7,16 +7,19 @@ const c = @cImport({
     @cInclude("CoreFoundation/CoreFoundation.h");
 });
 
+const statusbar = @cImport({
+    @cInclude("statusbar.h");
+});
+
 var global_app: ?*main.App = null;
 var event_tap: c.CFMachPortRef = null;
 var run_loop_source: c.CFRunLoopSourceRef = null;
 
-// Key codes
-const KEY_LESS_THAN: u16 = 50; // < key (dedicated key on international keyboards)
-
 // Modifier flags
 const kCGEventFlagMaskCommand: u64 = 0x100000;
 const kCGEventFlagMaskShift: u64 = 0x20000;
+const kCGEventFlagMaskOption: u64 = 0x80000;
+const kCGEventFlagMaskControl: u64 = 0x40000;
 
 pub fn register(app: *main.App) !void {
     global_app = app;
@@ -159,10 +162,13 @@ fn eventCallback(
     }
 
     if (event_type == c.kCGEventKeyDown) {
-        const has_cmd = (flags & kCGEventFlagMaskCommand) != 0;
+        // Check for dynamic hotkey toggle overlay (read current values from statusbar)
+        const hotkey_keycode = statusbar.getCurrentHotkeyKeycode();
+        const hotkey_modifiers = statusbar.getCurrentHotkeyModifiers();
+        const modifier_mask = kCGEventFlagMaskCommand | kCGEventFlagMaskShift | kCGEventFlagMaskOption | kCGEventFlagMaskControl;
+        const current_modifiers = flags & modifier_mask;
 
-        // Check for Cmd+< toggle overlay
-        if (keycode == KEY_LESS_THAN and has_cmd) {
+        if (keycode == hotkey_keycode and current_modifiers == hotkey_modifiers) {
             std.debug.print("Hotkey pressed!\n", .{});
             if (global_app) |app| {
                 app.toggleOverlay();
