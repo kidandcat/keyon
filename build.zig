@@ -49,4 +49,43 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run KeyOn");
     run_step.dependOn(&run_cmd.step);
+
+    // Test step
+    const test_step = b.step("test", "Run unit tests");
+
+    // Test search.zig (no special dependencies)
+    const search_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/search.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    test_step.dependOn(&b.addRunArtifact(search_tests).step);
+
+    // Test ui_element.zig (needs ApplicationServices)
+    const ui_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/ui_element.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    ui_tests.root_module.linkFramework("ApplicationServices", .{});
+    ui_tests.linkLibC();
+    test_step.dependOn(&b.addRunArtifact(ui_tests).step);
+
+    // Test hotkey.zig (needs CoreGraphics, CoreFoundation)
+    const hotkey_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/hotkey.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    hotkey_tests.root_module.addIncludePath(b.path("src"));
+    hotkey_tests.root_module.linkFramework("CoreGraphics", .{});
+    hotkey_tests.root_module.linkFramework("CoreFoundation", .{});
+    hotkey_tests.linkLibC();
+    test_step.dependOn(&b.addRunArtifact(hotkey_tests).step);
 }

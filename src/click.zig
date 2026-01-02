@@ -164,6 +164,39 @@ pub fn performScroll(dx: i32, dy: i32) void {
     }
 }
 
+pub fn performMiddleClick(x: f32, y: f32) void {
+    const point = c.CGPoint{
+        .x = @floatCast(x),
+        .y = @floatCast(y),
+    };
+
+    const mouse_down = c.CGEventCreateMouseEvent(
+        null,
+        c.kCGEventOtherMouseDown,
+        point,
+        c.kCGMouseButtonCenter,
+    );
+    defer if (mouse_down) |e| c.CFRelease(e);
+
+    const mouse_up = c.CGEventCreateMouseEvent(
+        null,
+        c.kCGEventOtherMouseUp,
+        point,
+        c.kCGMouseButtonCenter,
+    );
+    defer if (mouse_up) |e| c.CFRelease(e);
+
+    if (mouse_down) |down| {
+        c.CGEventPost(c.kCGHIDEventTap, down);
+    }
+
+    std.Thread.sleep(10 * std.time.ns_per_ms);
+
+    if (mouse_up) |up| {
+        c.CGEventPost(c.kCGHIDEventTap, up);
+    }
+}
+
 pub fn performDoubleClick(x: f32, y: f32) void {
     const point = c.CGPoint{
         .x = @floatCast(x),

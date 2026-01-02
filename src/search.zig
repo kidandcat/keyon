@@ -78,7 +78,7 @@ pub fn fuzzyScore(query: []const u8, target: []const u8) i32 {
     }
 
     // Shorter targets are better (more precise match)
-    score -= @as(i32, @intCast(target.len)) / 4;
+    score -= @divTrunc(@as(i32, @intCast(target.len)), 4);
 
     return score;
 }
@@ -121,8 +121,54 @@ test "fuzzyScore ordering" {
     // Exact match should score highest
     const exact = fuzzyScore("save", "save");
     const prefix = fuzzyScore("save", "save as");
-    const fuzzy = fuzzyScore("save", "s_a_v_e");
+    const scattered = fuzzyScore("save", "sXXaXXvXXe");
 
     try std.testing.expect(exact > prefix);
-    try std.testing.expect(prefix > fuzzy);
+    try std.testing.expect(prefix > scattered);
+}
+
+test "fuzzyMatch edge cases" {
+    // Single character
+    try std.testing.expect(fuzzyMatch("a", "a"));
+    try std.testing.expect(fuzzyMatch("a", "abc"));
+    try std.testing.expect(!fuzzyMatch("z", "abc"));
+
+    // Repeated characters
+    try std.testing.expect(fuzzyMatch("aa", "aaa"));
+    try std.testing.expect(!fuzzyMatch("aaa", "aa"));
+
+    // Special characters
+    try std.testing.expect(fuzzyMatch("_", "hello_world"));
+    try std.testing.expect(fuzzyMatch(".", "file.txt"));
+}
+
+test "fuzzyScore word boundaries" {
+    // Word start should score higher when it's the first match
+    const word_start = fuzzyScore("ab", "a_b");
+    const mid_word = fuzzyScore("ab", "aXb");
+
+    try std.testing.expect(word_start > mid_word);
+}
+
+test "fuzzyScore consecutive matches" {
+    // Consecutive matches should score higher
+    const consecutive = fuzzyScore("abc", "abcdef");
+    const scattered = fuzzyScore("abc", "aXXbXXc");
+
+    try std.testing.expect(consecutive > scattered);
+}
+
+test "fuzzyScore no match" {
+    try std.testing.expect(fuzzyScore("xyz", "abc") == -1000);
+    try std.testing.expect(fuzzyScore("abc", "") == -1000);
+}
+
+test "isWordBoundary" {
+    try std.testing.expect(isWordBoundary(' '));
+    try std.testing.expect(isWordBoundary('_'));
+    try std.testing.expect(isWordBoundary('-'));
+    try std.testing.expect(isWordBoundary('.'));
+    try std.testing.expect(isWordBoundary('/'));
+    try std.testing.expect(!isWordBoundary('a'));
+    try std.testing.expect(!isWordBoundary('0'));
 }

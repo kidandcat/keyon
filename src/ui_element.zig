@@ -146,3 +146,106 @@ pub const UIElement = struct {
         return false;
     }
 };
+
+// Tests
+test "UIElement init" {
+    const elem = UIElement.init();
+    try std.testing.expectEqual(@as(usize, 0), elem.role_len);
+    try std.testing.expectEqual(@as(usize, 0), elem.title_len);
+    try std.testing.expectEqual(@as(f32, 0), elem.x);
+    try std.testing.expectEqual(@as(f32, 0), elem.y);
+    try std.testing.expectEqual(@as(f32, 0), elem.width);
+    try std.testing.expectEqual(@as(f32, 0), elem.height);
+    try std.testing.expect(elem.ax_element == null);
+}
+
+test "UIElement setRole and getRole" {
+    var elem = UIElement.init();
+    elem.setRole("AXButton");
+    try std.testing.expectEqualStrings("AXButton", elem.getRole());
+}
+
+test "UIElement setRole truncates long roles" {
+    var elem = UIElement.init();
+    const long_role = "A" ** 100; // 100 characters
+    elem.setRole(long_role);
+    try std.testing.expectEqual(@as(usize, 63), elem.role_len);
+}
+
+test "UIElement setTitle and getTitle" {
+    var elem = UIElement.init();
+    elem.setTitle("Submit Button");
+    try std.testing.expectEqualStrings("Submit Button", elem.getTitle());
+}
+
+test "UIElement setTitle truncates long titles" {
+    var elem = UIElement.init();
+    const long_title = "B" ** 300; // 300 characters
+    elem.setTitle(long_title);
+    try std.testing.expectEqual(@as(usize, 255), elem.title_len);
+}
+
+test "UIElement getDisplayName returns title when set" {
+    var elem = UIElement.init();
+    elem.setRole("AXButton");
+    elem.setTitle("OK");
+    try std.testing.expectEqualStrings("OK", elem.getDisplayName());
+}
+
+test "UIElement getDisplayName returns role when no title" {
+    var elem = UIElement.init();
+    elem.setRole("AXButton");
+    try std.testing.expectEqualStrings("AXButton", elem.getDisplayName());
+}
+
+test "UIElement getCenterX and getCenterY" {
+    var elem = UIElement.init();
+    elem.x = 100;
+    elem.y = 200;
+    elem.width = 50;
+    elem.height = 30;
+    try std.testing.expectEqual(@as(f32, 125), elem.getCenterX());
+    try std.testing.expectEqual(@as(f32, 215), elem.getCenterY());
+}
+
+test "UIElement isClickable for buttons" {
+    var elem = UIElement.init();
+    elem.setRole("AXButton");
+    try std.testing.expect(elem.isClickable());
+}
+
+test "UIElement isClickable for links" {
+    var elem = UIElement.init();
+    elem.setRole("AXLink");
+    try std.testing.expect(elem.isClickable());
+}
+
+test "UIElement isClickable for text fields" {
+    var elem = UIElement.init();
+    elem.setRole("AXTextField");
+    try std.testing.expect(elem.isClickable());
+}
+
+test "UIElement isClickable for checkboxes" {
+    var elem = UIElement.init();
+    elem.setRole("AXCheckBox");
+    try std.testing.expect(elem.isClickable());
+}
+
+test "UIElement not clickable for groups" {
+    var elem = UIElement.init();
+    elem.setRole("AXGroup");
+    try std.testing.expect(!elem.isClickable());
+}
+
+test "UIElement not clickable for windows" {
+    var elem = UIElement.init();
+    elem.setRole("AXWindow");
+    try std.testing.expect(!elem.isClickable());
+}
+
+test "UIElement not clickable for static text" {
+    var elem = UIElement.init();
+    elem.setRole("AXStaticText");
+    try std.testing.expect(!elem.isClickable());
+}

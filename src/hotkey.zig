@@ -86,8 +86,10 @@ pub var typed_chars: [8]u8 = undefined;
 pub var typed_len: usize = 0;
 pub var should_click: bool = false;
 pub var should_right_click: bool = false;
+pub var should_middle_click: bool = false;
 pub var click_at_mouse: bool = false;
 pub var right_click_at_mouse: bool = false;
+pub var middle_click_at_mouse: bool = false;
 pub var scroll_x: i32 = 0;
 pub var scroll_y: i32 = 0;
 
@@ -210,6 +212,7 @@ fn eventCallback(
                     return null;
                 }
 
+
                 // Arrow keys - move mouse or scroll (with Shift)
                 const has_shift = (flags & kCGEventFlagMaskShift) != 0;
 
@@ -246,10 +249,12 @@ fn eventCallback(
                     return null;
                 }
 
-                // Backspace - delete character
+                // Backspace - delete character or middle click if no chars typed
                 if (keycode == KEY_BACKSPACE) {
                     if (typed_len > 0) {
                         typed_len -= 1;
+                    } else {
+                        middle_click_at_mouse = true;
                     }
                     return null;
                 }
@@ -271,7 +276,7 @@ fn eventCallback(
     return event;
 }
 
-fn keycodeToChar(keycode: i64) u8 {
+pub fn keycodeToChar(keycode: i64) u8 {
     // macOS keycodes for letters
     return switch (keycode) {
         0 => 'A',
@@ -316,4 +321,146 @@ pub fn processEvents() void {
 
 pub fn stopEventLoop() void {
     c.CFRunLoopStop(c.CFRunLoopGetCurrent());
+}
+
+// Tests
+test "keycodeToChar QWERTY row" {
+    try std.testing.expectEqual(@as(u8, 'Q'), keycodeToChar(12));
+    try std.testing.expectEqual(@as(u8, 'W'), keycodeToChar(13));
+    try std.testing.expectEqual(@as(u8, 'E'), keycodeToChar(14));
+    try std.testing.expectEqual(@as(u8, 'R'), keycodeToChar(15));
+    try std.testing.expectEqual(@as(u8, 'T'), keycodeToChar(17));
+    try std.testing.expectEqual(@as(u8, 'Y'), keycodeToChar(16));
+    try std.testing.expectEqual(@as(u8, 'U'), keycodeToChar(32));
+    try std.testing.expectEqual(@as(u8, 'I'), keycodeToChar(34));
+    try std.testing.expectEqual(@as(u8, 'O'), keycodeToChar(31));
+    try std.testing.expectEqual(@as(u8, 'P'), keycodeToChar(35));
+}
+
+test "keycodeToChar ASDF row" {
+    try std.testing.expectEqual(@as(u8, 'A'), keycodeToChar(0));
+    try std.testing.expectEqual(@as(u8, 'S'), keycodeToChar(1));
+    try std.testing.expectEqual(@as(u8, 'D'), keycodeToChar(2));
+    try std.testing.expectEqual(@as(u8, 'F'), keycodeToChar(3));
+    try std.testing.expectEqual(@as(u8, 'G'), keycodeToChar(5));
+    try std.testing.expectEqual(@as(u8, 'H'), keycodeToChar(4));
+    try std.testing.expectEqual(@as(u8, 'J'), keycodeToChar(38));
+    try std.testing.expectEqual(@as(u8, 'K'), keycodeToChar(40));
+    try std.testing.expectEqual(@as(u8, 'L'), keycodeToChar(37));
+}
+
+test "keycodeToChar ZXCV row" {
+    try std.testing.expectEqual(@as(u8, 'Z'), keycodeToChar(6));
+    try std.testing.expectEqual(@as(u8, 'X'), keycodeToChar(7));
+    try std.testing.expectEqual(@as(u8, 'C'), keycodeToChar(8));
+    try std.testing.expectEqual(@as(u8, 'V'), keycodeToChar(9));
+    try std.testing.expectEqual(@as(u8, 'B'), keycodeToChar(11));
+    try std.testing.expectEqual(@as(u8, 'N'), keycodeToChar(45));
+    try std.testing.expectEqual(@as(u8, 'M'), keycodeToChar(46));
+}
+
+test "keycodeToChar unknown returns 0" {
+    try std.testing.expectEqual(@as(u8, 0), keycodeToChar(100));
+    try std.testing.expectEqual(@as(u8, 0), keycodeToChar(-1));
+    try std.testing.expectEqual(@as(u8, 0), keycodeToChar(50)); // ` key
+}
+
+test "getMouseMovement returns zero when no keys held" {
+    // Reset state
+    arrow_up_held = false;
+    arrow_down_held = false;
+    arrow_left_held = false;
+    arrow_right_held = false;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016); // ~60fps
+    try std.testing.expectEqual(@as(f32, 0), result.x);
+    try std.testing.expectEqual(@as(f32, 0), result.y);
+}
+
+test "getMouseMovement returns non-zero when up held" {
+    arrow_up_held = true;
+    arrow_down_held = false;
+    arrow_left_held = false;
+    arrow_right_held = false;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016);
+    try std.testing.expect(result.y < 0); // Moving up = negative y
+    try std.testing.expectEqual(@as(f32, 0), result.x);
+
+    // Cleanup
+    arrow_up_held = false;
+    movement_start_time = 0;
+}
+
+test "getMouseMovement returns non-zero when down held" {
+    arrow_up_held = false;
+    arrow_down_held = true;
+    arrow_left_held = false;
+    arrow_right_held = false;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016);
+    try std.testing.expect(result.y > 0); // Moving down = positive y
+    try std.testing.expectEqual(@as(f32, 0), result.x);
+
+    // Cleanup
+    arrow_down_held = false;
+    movement_start_time = 0;
+}
+
+test "getMouseMovement returns non-zero when left held" {
+    arrow_up_held = false;
+    arrow_down_held = false;
+    arrow_left_held = true;
+    arrow_right_held = false;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016);
+    try std.testing.expect(result.x < 0); // Moving left = negative x
+    try std.testing.expectEqual(@as(f32, 0), result.y);
+
+    // Cleanup
+    arrow_left_held = false;
+    movement_start_time = 0;
+}
+
+test "getMouseMovement returns non-zero when right held" {
+    arrow_up_held = false;
+    arrow_down_held = false;
+    arrow_left_held = false;
+    arrow_right_held = true;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016);
+    try std.testing.expect(result.x > 0); // Moving right = positive x
+    try std.testing.expectEqual(@as(f32, 0), result.y);
+
+    // Cleanup
+    arrow_right_held = false;
+    movement_start_time = 0;
+}
+
+test "getMouseMovement diagonal movement" {
+    arrow_up_held = true;
+    arrow_right_held = true;
+    arrow_down_held = false;
+    arrow_left_held = false;
+    movement_start_time = 0;
+
+    const result = getMouseMovement(0.016);
+    try std.testing.expect(result.x > 0); // Right
+    try std.testing.expect(result.y < 0); // Up
+
+    // Cleanup
+    arrow_up_held = false;
+    arrow_right_held = false;
+    movement_start_time = 0;
+}
+
+test "speed constants are reasonable" {
+    try std.testing.expect(BASE_SPEED > 0);
+    try std.testing.expect(MAX_SPEED > BASE_SPEED);
+    try std.testing.expect(ACCEL_TIME > 0);
 }

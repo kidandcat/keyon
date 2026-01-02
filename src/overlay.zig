@@ -184,17 +184,25 @@ fn handleInput(app: *main.App) void {
     if (hotkey.right_click_at_mouse) {
         hotkey.right_click_at_mouse = false;
         const pos = getMousePosition();
-        std.debug.print("Right clicking at mouse position: ({d}, {d})\n", .{ @as(i32, @intFromFloat(pos.x)), @as(i32, @intFromFloat(pos.y)) });
         app.hideOverlay();
         std.Thread.sleep(30 * std.time.ns_per_ms);
         click.performRightClick(pos.x, pos.y);
+    }
+
+    // Handle middle click at current mouse position
+    if (hotkey.middle_click_at_mouse) {
+        hotkey.middle_click_at_mouse = false;
+        const pos = getMousePosition();
+        app.hideOverlay();
+        std.Thread.sleep(30 * std.time.ns_per_ms);
+        click.performMiddleClick(pos.x, pos.y);
     }
 
     // Check if we should click a label
     if (hotkey.should_click) {
         hotkey.should_click = false;
         if (hotkey.typed_len > 0) {
-            _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], false);
+            _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], .left);
         }
     }
 
@@ -202,7 +210,15 @@ fn handleInput(app: *main.App) void {
     if (hotkey.should_right_click) {
         hotkey.should_right_click = false;
         if (hotkey.typed_len > 0) {
-            _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], true);
+            _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], .right);
+        }
+    }
+
+    // Check if we should middle click a label
+    if (hotkey.should_middle_click) {
+        hotkey.should_middle_click = false;
+        if (hotkey.typed_len > 0) {
+            _ = tryClickLabel(app, hotkey.typed_chars[0..hotkey.typed_len], .middle);
         }
     }
 
@@ -224,7 +240,9 @@ fn getMousePosition() rl.Vector2 {
     return rl.Vector2{ .x = 0, .y = 0 };
 }
 
-fn tryClickLabel(app: *main.App, label: []const u8, right_click: bool) bool {
+const ClickType = enum { left, right, middle };
+
+fn tryClickLabel(app: *main.App, label: []const u8, click_type: ClickType) bool {
     const elements = app.elements.items;
 
     var i: usize = 0;
@@ -234,18 +252,17 @@ fn tryClickLabel(app: *main.App, label: []const u8, right_click: bool) bool {
 
         if (std.mem.eql(u8, label, elem_label[0..label_len])) {
             // Found a match - hide overlay FIRST, then click
-            if (right_click) {
-                std.debug.print("Right clicking element: {s}\n", .{elem.getDisplayName()});
-            } else {
-                std.debug.print("Clicking element: {s}\n", .{elem.getDisplayName()});
-            }
             app.hideOverlay();
             // Give time for overlay to hide
             std.Thread.sleep(30 * std.time.ns_per_ms);
-            if (right_click) {
-                app.rightClickElement(elem);
-            } else {
-                app.clickElement(elem);
+
+            const center_x = elem.x + elem.width / 2.0;
+            const center_y = elem.y + elem.height / 2.0;
+
+            switch (click_type) {
+                .left => app.clickElement(elem),
+                .right => app.rightClickElement(elem),
+                .middle => click.performMiddleClick(center_x, center_y),
             }
             return true;
         }
