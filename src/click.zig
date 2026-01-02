@@ -109,6 +109,10 @@ pub fn performClick(x: f32, y: f32) void {
 }
 
 pub fn performRightClick(x: f32, y: f32) void {
+    // Activate target app first
+    activateTargetApp();
+    std.Thread.sleep(50 * std.time.ns_per_ms);
+
     const point = c.CGPoint{
         .x = @floatCast(x),
         .y = @floatCast(y),
@@ -165,6 +169,10 @@ pub fn performScroll(dx: i32, dy: i32) void {
 }
 
 pub fn performMiddleClick(x: f32, y: f32) void {
+    // Activate target app first
+    activateTargetApp();
+    std.Thread.sleep(50 * std.time.ns_per_ms);
+
     const point = c.CGPoint{
         .x = @floatCast(x),
         .y = @floatCast(y),
@@ -198,6 +206,10 @@ pub fn performMiddleClick(x: f32, y: f32) void {
 }
 
 pub fn performDoubleClick(x: f32, y: f32) void {
+    // Activate target app first
+    activateTargetApp();
+    std.Thread.sleep(50 * std.time.ns_per_ms);
+
     const point = c.CGPoint{
         .x = @floatCast(x),
         .y = @floatCast(y),
